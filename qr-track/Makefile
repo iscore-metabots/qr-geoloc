@@ -12,6 +12,6 @@ LIB_FLAGS=  -L/usr/local/lib/opencv \
 			-lzbar
 
 SOURCES = qr-track.cpp
-EXECUTABLE = qr-track
+EXECUTABLE = qr-track.xc
 $(EXECUTABLE): $(SOURCES)
 	$(CC) -o $(EXECUTABLE) $(SOURCES) $(INCLUDE_FLAGS) $(LIB_FLAGS)

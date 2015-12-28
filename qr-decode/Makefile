@@ -12,6 +12,6 @@ LIB_FLAGS=  -L/usr/local/lib/opencv \
 			-lzbar
 
 SOURCES = qr-decode.cpp
-EXECUTABLE = qr-decode
+EXECUTABLE = qr-decode.xc
 $(EXECUTABLE): $(SOURCES)
 	$(CC) -o $(EXECUTABLE) $(SOURCES) $(INCLUDE_FLAGS) $(LIB_FLAGS)

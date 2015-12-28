@@ -10,6 +10,6 @@ LIB_FLAGS=  -L/usr/local/lib/opencv \
 			-lopencv_features2d
 
 SOURCES = chess-calib.cpp
-EXECUTABLE = chess-calib
+EXECUTABLE = chess-calib.xc
 $(EXECUTABLE): $(SOURCES)
 	$(CC) -o $(EXECUTABLE) $(SOURCES) $(INCLUDE_FLAGS) $(LIB_FLAGS)

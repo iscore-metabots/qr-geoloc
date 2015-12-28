@@ -7,6 +7,6 @@ LIB_FLAGS=  -L/usr/local/lib/opencv \
 			-lopencv_highgui \
 
 SOURCES = cap-calib.cpp
-EXECUTABLE = cap-calib
+EXECUTABLE = cap-calib.xc
 $(EXECUTABLE): $(SOURCES)
 	$(CC) -o $(EXECUTABLE) $(SOURCES) $(INCLUDE_FLAGS) $(LIB_FLAGS)

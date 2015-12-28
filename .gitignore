@@ -26,6 +26,8 @@
 *.exe
 *.out
 *.app
+# "Custom" executables from personal development platform
+*.xc
 
 # OS generated files
 .DS_Store
