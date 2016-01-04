@@ -198,6 +198,7 @@ int process(const char* projname, const char* scnname, char* imsname)
 
 
 #define param 3
+#define bound "# -----------------------------------"
 
 int main(int args, char* argv[])
 {
@@ -212,7 +213,7 @@ int main(int args, char* argv[])
     exit(EXIT_FAILURE);
   }
   else {
-    cout << "# ---------------------" << endl << "QR decoder based on reprojection data" << endl << "# ---------------------" << endl << endl;
+    cout << bound << endl << "QR decoder based on reprojection data" << endl << bound << endl << endl;
     return process(argv[1], argv[2], argv[3]);
   }
 }

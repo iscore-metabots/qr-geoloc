@@ -2,7 +2,6 @@ CC=g++
 
 INCLUDE_FLAGS=-I/usr/local/include
 LIB_FLAGS=  -L/usr/local/lib/opencv \
-			-L/usr/lib/opencv \
 			-lopencv_core \
 			-lopencv_highgui \
 			-lopencv_imgproc \

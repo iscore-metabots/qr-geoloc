@@ -8,6 +8,7 @@ using namespace std;
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/features2d/features2d.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
+#include <opencv2/gpu/gpu.hpp>
 using namespace cv;
 
 #include <zbar.h>
@@ -29,6 +30,34 @@ struct ItemData {
   float theta;
   unsigned int ID;
 } ;
+
+
+
+/*
+  detectGPU
+  Function looking for compatible GPUs up to index 9
+    dInfo: output
+      VideoCapture object corresponding to the first found camera
+    index: input output
+      As input: first camera index to try
+      As output: last camera index tried, index of the first found camera if applicable
+*/
+static bool detectGPU(int& dIndex)
+{
+  bool detected = false;
+  gpu::DeviceInfo dInfo;
+
+  // Try to get GPU info among the ten first found
+  while (!detected && (dIndex < 10)) {
+    dInfo = gpu::DeviceInfo(dIndex);
+    detected = dInfo.isCompatible();
+    dIndex++;
+  }
+
+  dIndex--; // Get the last index actually used
+
+  return detected;
+}
 
 
 
@@ -87,7 +116,7 @@ static bool readScene( const char* filename, int& w, int& h)
 
 /*
   openCam
-  Function attempting to connect to a camera up to index 9
+  Function attempting to connect to a camera at up to ten different indices
     videocap: output
       VideoCapture object corresponding to the first found camera
     index: input output
@@ -97,10 +126,10 @@ static bool readScene( const char* filename, int& w, int& h)
 static bool openCam(VideoCapture& videocap, int& index)
 {
   bool opened = false;
-    int maxindex = index + 10;
+  int maxindex = index + 10;
 
   // Try to open a camera among the ten first found
-    while (!opened && (index < maxindex)) {
+  while (!opened && (index < maxindex)) {
     videocap = VideoCapture(index);
     opened = videocap.isOpened();
     index++;
@@ -261,7 +290,20 @@ int process(const char* projname, const char* scnname, char* source)
 
 
 
+/*
+  processGPU
+  Function scanning an image taken from a calibrated camera to identify QR or bar codes
+    Same usage as process
+    Uses GPU-accelerated computing to process the video stream faster
+*/
+int processGPU(const char* projname, const char* scnname, char* source)
+{
+  cout << "Cormoran" << endl;
+}
+
+
 #define param 3
+#define bound "# -----------------------------------"
 
 int main(int args, char* argv[])
 {
@@ -276,7 +318,23 @@ int main(int args, char* argv[])
     exit(EXIT_FAILURE);
   }
   else {
-    cout << "# ---------------------" << endl << "QR tracker based on reprojection data" << endl << "# ---------------------" << endl << endl;
-    return process(argv[1], argv[2], argv[3]);
+    cout << bound << endl << "QR tracker based on reprojection data" << endl << endl;
+    try {
+      int dIndex = 0; // Try to detect a GPU on the computer
+      bool detected = detectGPU(dIndex);
+
+      if ( detected ) {
+        cout << "Compatible GPU detected at index: " << dIndex << ". Processing with GPU..." << endl << bound << endl << endl;
+        return processGPU(argv[1], argv[2], argv[3]);
+      }
+      else {
+        cout << "No compatible GPU detected. Processing with CPU only..." << endl << bound << endl << endl;
+        return process(argv[1], argv[2], argv[3]);
+      }
+    }
+    catch (cv::Exception& e){ // An exception will be raised if OpenCV was built without CUDA support
+      cerr << e.what() << "Trying to process on CPU only..." << endl << bound << endl << endl;
+      return process(argv[1], argv[2], argv[3]);
+    }
   }
 }

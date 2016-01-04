@@ -3,7 +3,6 @@ CC=g++
 INCLUDE_FLAGS=  -I/usr/local/include \
 			    -I/usr/include
 LIB_FLAGS=  -L/usr/local/lib/opencv \
-			-L/usr/lib/opencv \
 			-L/usr/lib \
 			-lopencv_core \
 			-lopencv_highgui \

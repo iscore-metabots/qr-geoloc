@@ -171,13 +171,43 @@ int process(const char* imsname, const char* refname, char* savename, bool extra
       warpPerspective(ims, improj, M, Size(1200, 1200));  // Apply this transformation on the whole image
       drawChessboardCorners(improj, boardsize, Mat(refcorners), found ); // Draw expected corners on the projected image
       imshow("Reprojected image", improj);
-      waitKey();
       // # WARP #*/
-      
-      bool saved = saveCalibData(M, savename);
-      cout << (saved ? "Transformation matrix successfully saved at: " : "Failed to save transformation matrix at: ") << savename << endl;
 
-      return EXIT_SUCCESS;
+      // Ask if the user is satisfied with the result
+      cout << "Is the result correct? Y/N" << endl;
+      bool correct = false;
+      char key = (char) waitKey();
+      if ( (key == 'y') || (key == 'Y') )
+        correct = true;
+
+      if (!correct) { // If the user is not satisfied
+        cout << "Performing reprojection with the reverse order..." << endl;
+        reverse(imcorners.begin(), imcorners.end()); // Try with the points in the reversed order
+        M = findHomography(imcorners, refcorners); // Get the new transformation matrix
+      
+        //* # WARP # Display the new reprojected image
+        warpPerspective(ims, improj, M, Size(1200, 1200));  // Apply the new transformation on the whole image
+        drawChessboardCorners(improj, boardsize, Mat(refcorners), found ); // Draw expected corners on the projected image
+        imshow("Reprojected image", improj);
+        // # WARP #*/
+
+        // Ask if the user is satisfied with the new result
+      cout << "Is the result correct? Y/N" << endl;
+      correct = false;
+      key = (char) waitKey();
+      if ( (key == 'y') || (key == 'Y') )
+        correct = true;
+      }
+      
+      if (correct) {
+        bool saved = saveCalibData(M, savename);
+        cout << (saved ? "Transformation matrix successfully saved at: " : "Failed to save transformation matrix at: ") << savename << endl;
+        return EXIT_SUCCESS;
+      }
+      else {
+        cout << "Could not calibrate successfully. Try improving the image resolution or placing the chessboard elsewhere." << endl;
+        return EXIT_FAILURE;
+      }  
     }
   }
 }
@@ -185,6 +215,7 @@ int process(const char* imsname, const char* refname, char* savename, bool extra
 
 
 #define param 3
+#define bound "# -----------------------------------"
 #define acc true
 
 int main(int args, char* argv[])
@@ -200,7 +231,7 @@ int main(int args, char* argv[])
     return EXIT_FAILURE;
   }
   else {
-    cout << "# ---------------------" << endl << "Camera calibration with chessboard" << endl << "# ---------------------" << endl << endl;
+    cout << bound << endl << "Camera calibration with chessboard" << endl << bound << endl << endl;
     return process(argv[1], argv[2], argv[3], acc);
   }
 }

@@ -63,6 +63,7 @@ int process(int camindex, const char* savename)
 
 
 #define param 2
+#define bound "# -----------------------------------"
 
 int main(int args, char* argv[])
 {
@@ -77,7 +78,7 @@ int main(int args, char* argv[])
     return EXIT_FAILURE;
   }
   else {
-    cout << "# ---------------------" << endl << "Image calibration capture" << endl << "# ---------------------" << endl << endl;
+    cout << bound << endl << "Image calibration capture" << endl << bound << endl << endl;
     return process(atoi(argv[1]), argv[2]);
   }
 }
