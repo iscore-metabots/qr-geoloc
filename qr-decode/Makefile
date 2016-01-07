@@ -1,14 +1,16 @@
 CC=g++
 
-INCLUDE_FLAGS=  -I/usr/local/include \
-			    -I/usr/include
-LIB_FLAGS=  -L/usr/local/lib/opencv \
-			-L/usr/lib \
-			-lopencv_core \
-			-lopencv_highgui \
-			-lopencv_imgproc \
-			-lopencv_features2d \
-			-lzbar
+INCLUDE_FLAGS= \
+	-I/usr/local/include \
+	-I/usr/include
+LIB_FLAGS= \
+	-L/usr/local/lib \
+	-L/usr/lib \
+	-lopencv_core \
+	-lopencv_highgui \
+	-lopencv_imgproc \
+	-lopencv_features2d \
+	-lzbar
 
 SOURCES = qr-decode.cpp
 EXECUTABLE = qr-decode.xc

@@ -1,9 +1,11 @@
 CC=g++
 
-INCLUDE_FLAGS=-I/usr/local/include
-LIB_FLAGS=  -L/usr/local/lib/opencv \
-			-lopencv_core \
-			-lopencv_highgui \
+INCLUDE_FLAGS= \
+	-I/usr/local/include
+LIB_FLAGS= \
+ 	-L/usr/local/lib \
+	-lopencv_core \
+	-lopencv_highgui \
 
 SOURCES = cap-calib.cpp
 EXECUTABLE = cap-calib.xc
