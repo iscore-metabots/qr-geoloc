@@ -56,6 +56,9 @@ static bool detectGPU(int& dIndex)
 
   dIndex--; // Get the last index actually used
 
+  if (detected)
+    cout << "Detected GPU " << dInfo.name() << " at index " << dIndex << endl;
+
   return detected;
 }
 
@@ -159,11 +162,8 @@ static bool openAVI(VideoCapture& videocap, char* path)
 
 
 /*
-  process
-  Function scanning an image taken from a calibrated camera to identify QR or bar codes
-    imsname: input
-      Full path and name to the image to read
-      The image should be taken with a fixed camera already calibrated
+  loadData
+  Function loading and checking all required data
     projname: input
       Full path and name to the YML file from which to get reprojection data
       About required YML structure, refer to example file
@@ -174,21 +174,22 @@ static bool openAVI(VideoCapture& videocap, char* path)
       String indicating which source will be used : AVI file or camera
       source should be a full path to an AVI file
       or an integer corresponding to the index of the first camera to try to connect to
+    M: output
+      Loaded transformation matrix
+    width, height: outputs
+      Loaded dimensions of the scene
+    videocap: output
+      VideoCapture object corresponding to the loaded video source
 */
-int process(const char* projname, const char* scnname, char* source)
+bool loadData(const char* projname, const char* scnname, char* source, Mat& M, int& width, int& height, VideoCapture& videocap)
 {
-  // # Configuration phase #
-
   // Load transformation matrix and scene data from reference files
-  Mat M;
-  int width, height;
   bool proj_loaded = readProj(projname, M);
   cout << ( proj_loaded ? "Reprojection data successfully loaded from: " : "Failed to load reprojection data from: ") << projname << endl;
   bool scn_loaded = readScene(scnname, width, height);
   cout << ( scn_loaded ? "Scene data successfully loaded from: " : "Failed to load scene data from: ") << scnname << endl;
 
   // Open the video source
-  VideoCapture videocap;
   bool cap_opened = false;
   string src(source);
 
@@ -208,84 +209,103 @@ int process(const char* projname, const char* scnname, char* source)
     cout << ( cap_opened ? "Camera connection successfully opened at index " : "Failed to connect to camera! Final index: ") << camindex << endl;
   }
 
-  // In case of error during configuration phase, the program exits
-  if (! (cap_opened && proj_loaded && scn_loaded) ) {
-    cerr << "Aborting scanning..." << endl;
-    exit(EXIT_FAILURE);
-  }
-  else {
-    Mat frame, gray; // Images that will be read and scanned
-    bool frame_OK = false;
+  return (cap_opened && proj_loaded && scn_loaded);
+}
 
-    ImageScanner scanner; // Code scanner
-    scanner.set_config(ZBAR_NONE, ZBAR_CFG_ENABLE, 1);
 
-    //* # SHOW # Display current frame in a window
-    namedWindow("Reprojected frame", 1);
+
+/*
+  process
+  Function scanning an image taken from a calibrated camera to identify QR or bar codes
+    M: input
+      Transformation matrix to reproject the images from the video stream
+    width, height: inputs
+      Dimensions of the scene, bounding the reprojected images
+    videocap: input
+      VideoCapture object corresponding to the video source
+*/
+int process(Mat M, int width, int height, VideoCapture& videocap)
+{
+  Mat frame, gray; // Images that will be read and scanned
+  bool frame_OK = false;
+
+  ImageScanner scanner; // Code scanner
+  scanner.set_config(ZBAR_NONE, ZBAR_CFG_ENABLE, 1);
+
+  /* # SHOW # Display current frame in a window
+  namedWindow("Reprojected frame", 1);
+  // # SHOW # */
+
+  //* # HIGHLIGHT # Delimit detected symbols in the reprojected image
+  Scalar color(0, 0, 255); // BGR pure red to highlight detected symbols
+  namedWindow("Found symbols", 1);
+  // # HIGHLIGHT # */
+
+  // Main loop going through the video stream
+  bool loop_exit = false;
+  char key;
+
+  while(! loop_exit) {
+    frame_OK = videocap.read(frame);
+    waitKey(1); // Allows the buffer to refresh
+    if (! (frame.data && frame_OK)) {
+      cerr << "Failed to load image from source!" << endl;
+      exit(EXIT_FAILURE);
+    }
+
+    warpPerspective(frame, frame, M, Size(width, height)); // Apply this transformation on the whole image
+    cvtColor(frame, gray, CV_BGR2GRAY); // Get grayscale image for scanning phase
+
+    /* # SHOW #
+    imshow("Reprojected frame", frame);
     // # SHOW # */
+    
+    uchar *raw = (uchar*) gray.data; // Raw image data
+    Image image(width, height, "Y800", raw, width * height);
+    
+    // Scan for codes in the image
+    int nsyms = scanner.scan(image);
 
-    //* # HIGHLIGHT # Delimit detected symbols in the reprojected image
-    Scalar color(0, 0, 255); // BGR pure red to highlight detected symbols
-    namedWindow("Found symbols", 1);
-    // # HIGHLIGHT # */
+    // Extract results
 
-    while(true) {
-      frame_OK = videocap.read(frame);
-      waitKey(1); // Allows the buffer to refresh
-      if (! (frame.data && frame_OK)) {
-        cerr << "Failed to load image from source!" << endl;
-        exit(EXIT_FAILURE);
+    //* # DATA # Write symbols' data in the console
+    cout << nsyms << " symbol(s) found in the given image" << endl;
+    // # DATA # */
+
+    for(Image::SymbolIterator symbol = image.symbol_begin(); symbol != image.symbol_end(); ++symbol) {
+      vector<Point> vp; // Build a vector of points delimiting the symbol
+      int n = symbol->get_location_size();
+      for(int i = 0; i < n; i++) {
+        vp.push_back(Point(symbol->get_location_x(i),symbol->get_location_y(i)));
       }
 
-      warpPerspective(frame, frame, M, Size(width, height)); // Apply this transformation on the whole image
-      cvtColor(frame, gray, CV_BGR2GRAY); // Get grayscale image for scanning phase
-
-      //* # SHOW #
-      imshow("Reprojected frame", frame);
-      // # SHOW # */
+      RotatedRect rect = minAreaRect(vp); // Find the smallest rectangle containing the symbol
+      Point2f center = rect.center;
+      float angle = rect.angle;
       
-      uchar *raw = (uchar*) gray.data; // Raw image data
-      Image image(width, height, "Y800", raw, width * height);
-      
-      // Scan for codes in the image
-      int nsyms = scanner.scan(image);
-
-      // Extract results
-
-      //* # DATA # Write symbols' data in the console
-      cout << nsyms << " symbol(s) found in the given image" << endl;
+      //* # DATA #
+      cout << "Data: \"" << symbol->get_data() << "\" - Angle: " << angle << " - Center: " << center << endl;
       // # DATA # */
 
-      for(Image::SymbolIterator symbol = image.symbol_begin(); symbol != image.symbol_end(); ++symbol) {
-        vector<Point> vp; // Build a vector of points delimiting the symbol
-        int n = symbol->get_location_size();
-        for(int i = 0; i < n; i++) {
-          vp.push_back(Point(symbol->get_location_x(i),symbol->get_location_y(i)));
-        }
-
-        RotatedRect rect = minAreaRect(vp); // Find the smallest rectangle containing the symbol
-        Point2f center = rect.center;
-        float angle = rect.angle;
-        
-        //* # DATA #
-        cout << "Data: \"" << symbol->get_data() << "\" - Angle: " << angle << " - Center: " << center << endl;
-        // # DATA # */
-
-        //* # HIGHLIGHT #
-        Point2f pts[4]; // Draw the rectangle's edges on the reprojected image
-        rect.points(pts);
-        for(int i = 0; i < 4; i++)
-          line(frame, pts[i], pts[(i + 1) % 4], color, 2);
-        // # HIGHLIGHT # */
-      }
-
       //* # HIGHLIGHT #
-      imshow("Found symbols", frame);
-      waitKey(30);
+      Point2f pts[4]; // Draw the rectangle's edges on the reprojected image
+      rect.points(pts);
+      for(int i = 0; i < 4; i++)
+        line(frame, pts[i], pts[(i + 1) % 4], color, 2);
       // # HIGHLIGHT # */
     }
-    return EXIT_SUCCESS;
+
+    //* # HIGHLIGHT #
+    imshow("Found symbols", frame);
+    // # HIGHLIGHT # */
+
+    // Exit loop when the user presses q or ESC
+    key = (char) waitKey(1);
+    if ( key == 27 || key == 'q' || key == 'Q' )
+      loop_exit = true;
   }
+
+  return EXIT_SUCCESS;
 }
 
 
@@ -293,13 +313,86 @@ int process(const char* projname, const char* scnname, char* source)
 /*
   processGPU
   Function scanning an image taken from a calibrated camera to identify QR or bar codes
-    Same usage as process
+    Mostly same usage as process
     Uses GPU-accelerated computing to process the video stream faster
+  dIndex: input
+    Index of the GPU device to enable
 */
-int processGPU(const char* projname, const char* scnname, char* source)
+int processGPU(Mat M, int width, int height, VideoCapture& videocap, const int dIndex)
 {
-  cout << "Cormoran" << endl;
+  // Set detected GPU as used device
+  gpu::setDevice(dIndex);
+
+  // Images that will be read and scanned
+  Mat frame, gray;
+  gpu::GpuMat gframe, ggray;
+  bool frame_OK = false;
+
+  ImageScanner scanner; // Code scanner
+  scanner.set_config(ZBAR_NONE, ZBAR_CFG_ENABLE, 1);
+
+  /* # SHOW # Display current frame in a window
+  namedWindow("Reprojected frame", 1);
+  // # SHOW # */
+
+  // Main loop going through the video stream
+  bool loop_exit = false;
+  char key;
+
+  while(! loop_exit) {
+    frame_OK = videocap.read(frame);
+    waitKey(1); // Allows the buffer to refresh
+    if (! (frame.data && frame_OK)) {
+      cerr << "Failed to load image from source!" << endl;
+      exit(EXIT_FAILURE);
+    }
+
+    gframe.upload(frame);
+    gpu::warpPerspective(gframe, gframe, M, Size(width, height)); // Apply this transformation on the whole image
+    gpu::cvtColor(gframe, ggray, CV_BGR2GRAY); // Get grayscale image for scanning phase
+    ggray.download(gray);
+
+    /* # SHOW #
+    imshow("Reprojected frame", frame);
+    // # SHOW # */
+    
+    uchar *raw = (uchar*) gray.data; // Raw image data
+    Image image(width, height, "Y800", raw, width * height);
+    
+    // Scan for codes in the image
+    int nsyms = scanner.scan(image);
+
+    // Extract results
+
+    //* # DATA # Write symbols' data in the console
+    cout << nsyms << " symbol(s) found in the given image" << endl;
+    // # DATA # */
+
+    for(Image::SymbolIterator symbol = image.symbol_begin(); symbol != image.symbol_end(); ++symbol) {
+      vector<Point> vp; // Build a vector of points delimiting the symbol
+      int n = symbol->get_location_size();
+      for(int i = 0; i < n; i++) {
+        vp.push_back(Point(symbol->get_location_x(i),symbol->get_location_y(i)));
+      }
+
+      RotatedRect rect = minAreaRect(vp); // Find the smallest rectangle containing the symbol
+      Point2f center = rect.center;
+      float angle = rect.angle;
+      
+      //* # DATA #
+      cout << "Data: \"" << symbol->get_data() << "\" - Angle: " << angle << " - Center: " << center << endl;
+      // # DATA # */
+    }
+
+    // Exit loop when the user presses q or ESC
+    key = (char) waitKey(100);
+    if ( key == 27 || key == 'q' || key == 'Q' )
+      loop_exit = true;
+  }
+
+  return EXIT_SUCCESS;
 }
+
 
 
 #define param 3
@@ -319,22 +412,34 @@ int main(int args, char* argv[])
   }
   else {
     cout << bound << endl << "QR tracker based on reprojection data" << endl << endl;
-    try {
-      int dIndex = 0; // Try to detect a GPU on the computer
-      bool detected = detectGPU(dIndex);
+    Mat M;
+    int width, height;
+    VideoCapture videocap;
 
-      if ( detected ) {
-        cout << "Compatible GPU detected at index: " << dIndex << ". Processing with GPU..." << endl << bound << endl << endl;
-        return processGPU(argv[1], argv[2], argv[3]);
+    if ( loadData(argv[1], argv[2], argv[3], M, width, height, videocap) ) {
+      try {
+        int dIndex = 0; // Try to detect a GPU on the computer
+        bool detected = detectGPU(dIndex);
+
+        if ( detected ) {
+          cout << "Processing with GPU..." << endl << bound << endl << endl;
+          return processGPU(M, width, height, videocap, dIndex);
+        }
+        else {
+          cout << "No compatible GPU detected. Processing with CPU only..." << endl << bound << endl << endl;
+          return process(M, width, height, videocap);
+        }
       }
-      else {
-        cout << "No compatible GPU detected. Processing with CPU only..." << endl << bound << endl << endl;
-        return process(argv[1], argv[2], argv[3]);
+      catch (cv::Exception& e) {
+        cerr << e.what() << endl;
+        cout << "ERROR: Could not search for compatible GPUs! This error can occur if OpenCV was not build with CUDA support, or if the user doesn't have the rights to access to the GPUs of the system." << endl;
+        cout << "Processing with CPU only..." << endl << bound << endl << endl;
+        return process(M, width, height, videocap);
       }
     }
-    catch (cv::Exception& e){ // An exception will be raised if OpenCV was built without CUDA support
-      cerr << e.what() << "Trying to process on CPU only..." << endl << bound << endl << endl;
-      return process(argv[1], argv[2], argv[3]);
+    else {
+      cerr << endl << bound << endl << "Aborting scanning..." << endl;
+      exit(EXIT_FAILURE); // In case of error during initialization phase, the program exits
     }
   }
 }
