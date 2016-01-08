@@ -385,7 +385,7 @@ int processGPU(Mat M, int width, int height, VideoCapture& videocap, const int d
     }
 
     // Exit loop when the user presses q or ESC
-    key = (char) waitKey(100);
+    key = (char) waitKey(1);
     if ( key == 27 || key == 'q' || key == 'Q' )
       loop_exit = true;
   }
@@ -397,6 +397,7 @@ int processGPU(Mat M, int width, int height, VideoCapture& videocap, const int d
 
 #define param 3
 #define bound "# -----------------------------------"
+#define tryGPU false
 
 int main(int args, char* argv[])
 {
@@ -417,25 +418,28 @@ int main(int args, char* argv[])
     VideoCapture videocap;
 
     if ( loadData(argv[1], argv[2], argv[3], M, width, height, videocap) ) {
-      try {
-        int dIndex = 0; // Try to detect a GPU on the computer
-        bool detected = detectGPU(dIndex);
+      bool useCPU = true;
+      if (tryGPU) {
+        try {
+          int dIndex = 0; // Try to detect a GPU on the computer
+          useCPU = !detectGPU(dIndex);
 
-        if ( detected ) {
-          cout << "Processing with GPU..." << endl << bound << endl << endl;
-          return processGPU(M, width, height, videocap, dIndex);
+          if ( useCPU )
+            cout << "No compatible GPU detected. Processing with CPU only..." << endl << bound << endl << endl;
+          else
+            cout << "Processing with GPU..." << endl << bound << endl << endl;
         }
-        else {
-          cout << "No compatible GPU detected. Processing with CPU only..." << endl << bound << endl << endl;
-          return process(M, width, height, videocap);
+        catch (cv::Exception& e) {
+          cerr << e.what() << endl;
+          cout << "ERROR: Could not search for compatible GPUs! This error can occur if OpenCV was not build with CUDA support, or if the user doesn't have the rights to access to the GPUs of the system." << endl;
+          cout << "Processing with CPU only..." << endl << bound << endl << endl;
         }
       }
-      catch (cv::Exception& e) {
-        cerr << e.what() << endl;
-        cout << "ERROR: Could not search for compatible GPUs! This error can occur if OpenCV was not build with CUDA support, or if the user doesn't have the rights to access to the GPUs of the system." << endl;
-        cout << "Processing with CPU only..." << endl << bound << endl << endl;
+
+      if( useCPU)
         return process(M, width, height, videocap);
-      }
+      else
+        return processGPU(M, width, height, videocap, dIndex);
     }
     else {
       cerr << endl << bound << endl << "Aborting scanning..." << endl;
