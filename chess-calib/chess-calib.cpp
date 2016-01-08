@@ -163,6 +163,7 @@ int process(const char* imsname, const char* refname, char* savename, bool extra
       drawChessboardCorners(imchess, boardsize, Mat(imcorners), found ); // Draw detected corners on the calibration image
       imshow("Found corners", imchess);
       waitKey();
+      destroyWindow("Found corners");
       // # CORNER CHECK # */
 
       Mat M = findHomography(imcorners, refcorners), improj; // Get the transformation matrix projecting the corners from the image to the destination plane
@@ -174,11 +175,19 @@ int process(const char* imsname, const char* refname, char* savename, bool extra
       // # WARP #*/
 
       // Ask if the user is satisfied with the result
+      bool correct = false, answered = false;
+      char key;
+
       cout << "Is the result correct? Y/N" << endl;
-      bool correct = false;
-      char key = (char) waitKey();
-      if ( (key == 'y') || (key == 'Y') )
-        correct = true;
+      while(! answered) {
+        key = (char) waitKey(30);
+        if ( (key == 'y') || (key == 'Y') ) {
+          correct = true;
+          answered = true;
+        }
+        if ( (key == 'n') || (key == 'N') )
+          answered = true;
+      }
 
       if (!correct) { // If the user is not satisfied
         cout << "Performing reprojection with the reverse order..." << endl;
@@ -192,11 +201,19 @@ int process(const char* imsname, const char* refname, char* savename, bool extra
         // # WARP #*/
 
         // Ask if the user is satisfied with the new result
-      cout << "Is the result correct? Y/N" << endl;
-      correct = false;
-      key = (char) waitKey();
-      if ( (key == 'y') || (key == 'Y') )
-        correct = true;
+        correct = false;
+        answered = false;
+        
+        cout << "Is the result correct? Y/N" << endl;
+        while(! answered) {
+          key = (char) waitKey(30);
+          if ( (key == 'y') || (key == 'Y') ) {
+            correct = true;
+            answered = true;
+          }
+          if ( (key == 'n') || (key == 'N') )
+            answered = true;
+        }
       }
       
       if (correct) {
