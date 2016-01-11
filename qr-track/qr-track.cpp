@@ -1,6 +1,7 @@
 
 #include <iostream>
 #include <stdlib.h>
+#include <signal.h>
 #include <string>
 using namespace std;
 
@@ -215,6 +216,16 @@ bool loadData(const char* projname, const char* scnname, char* source, Mat& M, i
 
 
 /*
+  Ctrl-C interruption handling
+*/
+bool loop_exit = false;
+void interrupt_loop(int sig)
+{
+  loop_exit = true; // Whenever the user exits with Ctrl-C, the programs exits the loop cleanly
+}
+
+
+/*
   process
   Function scanning an image taken from a calibrated camera to identify QR or bar codes
     M: input
@@ -242,8 +253,7 @@ int process(Mat M, int width, int height, VideoCapture& videocap)
   // # HIGHLIGHT # */
 
   // Main loop going through the video stream
-  bool loop_exit = false;
-  char key;
+  signal(SIGINT, interrupt_loop); // Register interruption signal
 
   while(! loop_exit) {
     frame_OK = videocap.read(frame);
@@ -298,11 +308,6 @@ int process(Mat M, int width, int height, VideoCapture& videocap)
     //* # HIGHLIGHT #
     imshow("Found symbols", frame);
     // # HIGHLIGHT # */
-
-    // Exit loop when the user presses q or ESC
-    key = (char) waitKey(1);
-    if ( key == 27 || key == 'q' || key == 'Q' )
-      loop_exit = true;
   }
 
   return EXIT_SUCCESS;
@@ -336,8 +341,7 @@ int processGPU(Mat M, int width, int height, VideoCapture& videocap, const int d
   // # SHOW # */
 
   // Main loop going through the video stream
-  bool loop_exit = false;
-  char key;
+  signal(SIGINT, interrupt_loop); // Register interruption signal
 
   while(! loop_exit) {
     frame_OK = videocap.read(frame);
@@ -383,11 +387,6 @@ int processGPU(Mat M, int width, int height, VideoCapture& videocap, const int d
       cout << "Data: \"" << symbol->get_data() << "\" - Angle: " << angle << " - Center: " << center << endl;
       // # DATA # */
     }
-
-    // Exit loop when the user presses q or ESC
-    key = (char) waitKey(1);
-    if ( key == 27 || key == 'q' || key == 'Q' )
-      loop_exit = true;
   }
 
   return EXIT_SUCCESS;
@@ -419,9 +418,9 @@ int main(int args, char* argv[])
 
     if ( loadData(argv[1], argv[2], argv[3], M, width, height, videocap) ) {
       bool useCPU = true;
+      int dIndex = 0; // Try to detect a GPU on the computer
       if (tryGPU) {
         try {
-          int dIndex = 0; // Try to detect a GPU on the computer
           useCPU = !detectGPU(dIndex);
 
           if ( useCPU )
@@ -435,8 +434,12 @@ int main(int args, char* argv[])
           cout << "Processing with CPU only..." << endl << bound << endl << endl;
         }
       }
+      else
+      {
+        cout << "\"tryGPU\" option disabled. Processing with CPU..." << endl << bound << endl << endl;
+      }
 
-      if( useCPU)
+      if( useCPU )
         return process(M, width, height, videocap);
       else
         return processGPU(M, width, height, videocap, dIndex);
