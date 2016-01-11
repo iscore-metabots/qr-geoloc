@@ -38,7 +38,10 @@ static bool openCam(VideoCapture& videocap, int& index)
 
 /*
   process
-  
+    camindex: input
+      Index of the camera to connect to
+    savename: input
+      Full path and name to the file where to save the captured image
 */
 int process(int camindex, const char* savename)
 {
