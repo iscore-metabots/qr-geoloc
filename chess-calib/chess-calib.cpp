@@ -10,6 +10,35 @@ using namespace std;
 using namespace cv;
 
 
+
+/*
+  openCam
+  Function attempting to connect to a camera up to index 9
+    videocap: output
+      VideoCapture object corresponding to the first found camera
+    index: input output
+      As input: first camera index to try
+      As output: last camera index tried, index of the first found camera if applicable
+*/
+static bool openCam(VideoCapture& videocap, int& index)
+{
+  bool opened = false;
+    int maxindex = index + 10;
+
+  // Try to open a camera among the ten first found
+    while (!opened && (index < maxindex)) {
+    videocap = VideoCapture(index);
+    opened = videocap.isOpened();
+    index++;
+  }
+
+  index--; // Get the last index actually used
+
+  return opened;
+}
+
+
+
 /*
   readRef
   Function importing chessboard parameters as geometric data from a YML file
@@ -121,8 +150,10 @@ static bool saveCalibData(Mat M, char* filename)
 /*
   process
   Function processing an image containing a chessboard into a reprojected image
-    imsname: input
-      Full path and name to the calibration image to read
+    source: input
+      String indicating which source will be used to retrieve a calibration image : image file or camera
+      source should be a full path to a JPG or PNG file
+      or an integer corresponding to the index of the first camera to try to connect to
       The calibration image should be taken with a fixed camera
     refname: input
       Full path and name to the YML file from which to get chessboard parameters
@@ -132,17 +163,54 @@ static bool saveCalibData(Mat M, char* filename)
     extra_acc: input
       Corner detection accuracy improvement option
 */
-int process(const char* imsname, const char* refname, char* savename, bool extra_acc)
+int process(const char* source, const char* refname, char* savename, bool extra_acc)
 {
-  Mat ims = imread(imsname, CV_LOAD_IMAGE_COLOR); // Load calibration image
-  cout << ( (ims.data) ? "Image successfully loaded from: " : "Failed to load image from: ") << imsname << endl;
+  // Open the source
+  bool src_opened = false;
+  string src(source), ext = src.substr(src.find_last_of(".") + 1);
+  Mat ims;
+
+  if ( (ext == "png") || (ext == "jpg") || (ext == "jpeg") || (ext == "PNG") || (ext == "JPG") || (ext == "JPEG") ) {
+    // Supports only PNG and JPG files, but could be extended to other image file types that your OpenCV version can handle
+    cout << "Source detected: image file." << endl;
+
+    ims = imread(source, CV_LOAD_IMAGE_COLOR);
+    src_opened = (! ims.empty() );
+    cout << ( src_opened ? "Image successfully loaded from: " : "Failed to load image file from: ") << src << endl;
+  }
+  else {
+    cout << "Source detected: camera." << endl;
+
+    int camindex = atoi(source);
+    VideoCapture videocap;
+    if (camindex < 0) {
+      cerr << "Camera index given is invalid: " << source << ". Positive integer expected." << endl;
+      exit(EXIT_FAILURE);
+    }
+    src_opened = openCam(videocap, camindex);
+    cout << ( src_opened ? "Camera connection successfully opened at index " : "Failed to connect to camera! Final index: ") << camindex << endl;
+    
+    if (src_opened) {
+      videocap >> ims;
+      src_opened = (! ims.empty() );
+
+      if (src_opened) { // The calibration image retrieved from the camera is saved at a standard location
+        imd = "calib-cap.png";
+        bool saved = imwrite(imd, ims);
+        cout << "Image successfully retrieved from camera, saved at: " << imd << endl;
+      }
+      else
+        cout << "Failed to retrieve image from camera!" << endl;
+    }
+    // VideoCapture object should be automatically destroyed after the next brace
+  }
   
   vector< Point2f > refcorners;
   Size boardsize;
   bool loaded = readRef(refname, refcorners, boardsize); // Load corners' positions in the destination plane
   cout << (loaded ? "Chessboard parameters successfully loaded from: " : "Failed to load chessboard parameters from: ") << refname << endl;
 
-  if (! (loaded && ims.data) ) {
+  if (! (loaded && src_opened) ) {
     cerr << "Aborting calibration..." << endl;
     exit(EXIT_FAILURE);
   }
@@ -162,6 +230,7 @@ int process(const char* imsname, const char* refname, char* savename, bool extra
       Mat imchess = ims.clone();
       drawChessboardCorners(imchess, boardsize, Mat(imcorners), found ); // Draw detected corners on the calibration image
       imshow("Found corners", imchess);
+      cout << "Press any key to continue." << endl;
       waitKey();
       destroyWindow("Found corners");
       // # CORNER CHECK # */
@@ -178,7 +247,7 @@ int process(const char* imsname, const char* refname, char* savename, bool extra
       bool correct = false, answered = false;
       char key;
 
-      cout << "Is the result correct? Y/N" << endl;
+      cout << endl << "Is the result correct? Y/N" << endl;
       while(! answered) {
         key = (char) waitKey(30);
         if ( (key == 'y') || (key == 'Y') ) {
@@ -190,7 +259,7 @@ int process(const char* imsname, const char* refname, char* savename, bool extra
       }
 
       if (!correct) { // If the user is not satisfied
-        cout << "Performing reprojection with the reverse order..." << endl;
+        cout << "Performing reprojection with corners in the reverse order..." << endl;
         reverse(imcorners.begin(), imcorners.end()); // Try with the points in the reversed order
         M = findHomography(imcorners, refcorners); // Get the new transformation matrix
       
@@ -204,7 +273,7 @@ int process(const char* imsname, const char* refname, char* savename, bool extra
         correct = false;
         answered = false;
         
-        cout << "Is the result correct? Y/N" << endl;
+        cout << endl << "Is the result correct? Y/N" << endl;
         while(! answered) {
           key = (char) waitKey(30);
           if ( (key == 'y') || (key == 'Y') ) {
@@ -244,7 +313,7 @@ int main(int args, char* argv[])
     else {
       cout << "Too many arguments!";
     }
-    cerr << " Number given: " << args - 1 << endl << "Usage: chess-calib <ims-name> <chess-data.yml> <calib-data.yml>" << endl;
+    cerr << " Number given: " << args - 1 << endl << "Usage: chess-calib <source> <chess-data.yml> <calib-data.yml>" << endl;
     return EXIT_FAILURE;
   }
   else {
