@@ -43,7 +43,7 @@ struct ItemData {
       As input: first camera index to try
       As output: last camera index tried, index of the first found camera if applicable
 */
-static bool detectGPU(int& dIndex)
+bool detectGPU(int& dIndex)
 {
   bool detected = false;
   gpu::DeviceInfo dInfo;
@@ -73,7 +73,7 @@ static bool detectGPU(int& dIndex)
     M: output
       OpenCV matrix to return transformation matrix
 */
-static bool readProj( const char* filename, Mat& M)
+bool readProj( const char* filename, Mat& M)
 {
   FileStorage fs(filename, FileStorage::READ);
   if( !fs.isOpened() )
@@ -95,24 +95,23 @@ static bool readProj( const char* filename, Mat& M)
   Function importing scene reference data from a YML file
     filename: input
       Full path and name to the YML file to read
-    w: output
-      Width of the scene
-    h: output
-      Height of the scene
+    scnsize: output
+      Dimensions of the scene
 */
-static bool readScene( const char* filename, int& w, int& h)
+bool readScene( const char* filename, Size& scnsize)
 {
   FileStorage fs(filename, FileStorage::READ);
   if ( !fs.isOpened() )
     return false;
   
-  FileNode wn = fs["Width"], hn = fs["Height"];
-  if ( wn.empty() || hn.empty() )
+  FileNode sizen = fs["Size"];
+  if ( sizen.empty() )
     return false;
 
   // Get the scene's dimensions
-  wn >> w;
-  hn >> h;
+  sizen >> scnsize;
+
+  fs.release();
   return true;
 }
 
@@ -127,7 +126,7 @@ static bool readScene( const char* filename, int& w, int& h)
       As input: first camera index to try
       As output: last camera index tried, index of the first found camera if applicable
 */
-static bool openCam(VideoCapture& videocap, int& index)
+bool openCam(VideoCapture& videocap, int& index)
 {
   bool opened = false;
   int maxindex = index + 10;
@@ -154,7 +153,7 @@ static bool openCam(VideoCapture& videocap, int& index)
     path: input
       Full path and name to the AVI file to open
 */
-static bool openAVI(VideoCapture& videocap, char* path)
+bool openAVI(VideoCapture& videocap, char* path)
 {
   videocap = VideoCapture(path);
   return videocap.isOpened();
@@ -177,17 +176,18 @@ static bool openAVI(VideoCapture& videocap, char* path)
       or an integer corresponding to the index of the first camera to try to connect to
     M: output
       Loaded transformation matrix
-    width, height: outputs
+    scnsize: output
       Loaded dimensions of the scene
     videocap: output
       VideoCapture object corresponding to the loaded video source
 */
-bool loadData(const char* projname, const char* scnname, char* source, Mat& M, int& width, int& height, VideoCapture& videocap)
+bool loadData(const char* projname, const char* scnname, char* source, Mat& M, Size& scnsize, VideoCapture& videocap)
 {
   // Load transformation matrix and scene data from reference files
   bool proj_loaded = readProj(projname, M);
   cout << ( proj_loaded ? "Reprojection data successfully loaded from: " : "Failed to load reprojection data from: ") << projname << endl;
-  bool scn_loaded = readScene(scnname, width, height);
+
+  bool scn_loaded = readScene(scnname, scnsize);
   cout << ( scn_loaded ? "Scene data successfully loaded from: " : "Failed to load scene data from: ") << scnname << endl;
 
   // Open the video source
@@ -221,6 +221,7 @@ bool loadData(const char* projname, const char* scnname, char* source, Mat& M, i
 bool loop_exit = false;
 void interrupt_loop(int sig)
 {
+  cout << endl << "Keyboard interruption catched. Exiting program..." << endl;
   loop_exit = true; // Whenever the user exits with Ctrl-C, the programs exits the loop cleanly
 }
 
@@ -230,15 +231,17 @@ void interrupt_loop(int sig)
   Function scanning an image taken from a calibrated camera to identify QR or bar codes
     M: input
       Transformation matrix to reproject the images from the video stream
-    width, height: inputs
+    scnsize: input
       Dimensions of the scene, bounding the reprojected images
     videocap: input
       VideoCapture object corresponding to the video source
 */
-int process(Mat M, int width, int height, VideoCapture& videocap)
+int process(Mat M, Size scnsize, VideoCapture& videocap)
 {
   Mat frame, gray; // Images that will be read and scanned
   bool frame_OK = false;
+
+  int width = scnsize.width, height = scnsize.height; // Dimensions of the scene
 
   ImageScanner scanner; // Code scanner
   scanner.set_config(ZBAR_NONE, ZBAR_CFG_ENABLE, 1);
@@ -263,7 +266,7 @@ int process(Mat M, int width, int height, VideoCapture& videocap)
       exit(EXIT_FAILURE);
     }
 
-    warpPerspective(frame, frame, M, Size(width, height)); // Apply this transformation on the whole image
+    warpPerspective(frame, frame, M, scnsize); // Apply this transformation on the whole image
     cvtColor(frame, gray, CV_BGR2GRAY); // Get grayscale image for scanning phase
 
     /* # SHOW #
@@ -323,7 +326,7 @@ int process(Mat M, int width, int height, VideoCapture& videocap)
   dIndex: input
     Index of the GPU device to enable
 */
-int processGPU(Mat M, int width, int height, VideoCapture& videocap, const int dIndex)
+int processGPU(Mat M, Size scnsize, VideoCapture& videocap, const int dIndex)
 {
   // Set detected GPU as used device
   gpu::setDevice(dIndex);
@@ -332,6 +335,8 @@ int processGPU(Mat M, int width, int height, VideoCapture& videocap, const int d
   Mat frame, gray;
   gpu::GpuMat gframe, ggray;
   bool frame_OK = false;
+
+  int width = scnsize.width, height = scnsize.height; // Dimensions of the scene
 
   ImageScanner scanner; // Code scanner
   scanner.set_config(ZBAR_NONE, ZBAR_CFG_ENABLE, 1);
@@ -352,7 +357,7 @@ int processGPU(Mat M, int width, int height, VideoCapture& videocap, const int d
     }
 
     gframe.upload(frame);
-    gpu::warpPerspective(gframe, gframe, M, Size(width, height)); // Apply this transformation on the whole image
+    gpu::warpPerspective(gframe, gframe, M, scnsize); // Apply this transformation on the whole image
     gpu::cvtColor(gframe, ggray, CV_BGR2GRAY); // Get grayscale image for scanning phase
     ggray.download(gray);
 
@@ -413,10 +418,10 @@ int main(int args, char* argv[])
   else {
     cout << bound << endl << "QR tracker based on reprojection data" << endl << endl;
     Mat M;
-    int width, height;
+    Size scnsize;
     VideoCapture videocap;
 
-    if ( loadData(argv[1], argv[2], argv[3], M, width, height, videocap) ) {
+    if ( loadData(argv[1], argv[2], argv[3], M, scnsize, videocap) ) {
       bool useCPU = true;
       int dIndex = 0; // Try to detect a GPU on the computer
       if (tryGPU) {
@@ -440,9 +445,9 @@ int main(int args, char* argv[])
       }
 
       if( useCPU )
-        return process(M, width, height, videocap);
+        return process(M, scnsize, videocap);
       else
-        return processGPU(M, width, height, videocap, dIndex);
+        return processGPU(M, scnsize, videocap, dIndex);
     }
     else {
       cerr << endl << bound << endl << "Aborting scanning..." << endl;
