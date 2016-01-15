@@ -2,6 +2,8 @@
 #include <iostream>
 #include <stdlib.h>
 #include <signal.h>
+#include <math.h>
+#define PI 3.1415927
 #include <string>
 using namespace std;
 
@@ -226,6 +228,7 @@ void interrupt_loop(int sig)
 }
 
 
+
 /*
   process
   Function scanning an image taken from a calibrated camera to identify QR or bar codes
@@ -288,26 +291,32 @@ int process(Mat M, Size scnsize, VideoCapture& videocap)
     // # DATA # */
 
     for(Image::SymbolIterator symbol = image.symbol_begin(); symbol != image.symbol_end(); ++symbol) {
-      vector<Point> vp; // Build a vector of points delimiting the symbol
+      vector< Point2f > vp; // Build a vector of points delimiting the symbol
       int n = symbol->get_location_size();
+      
+      Point2f center, pNorth;
       for(int i = 0; i < n; i++) {
-        vp.push_back(Point(symbol->get_location_x(i),symbol->get_location_y(i)));
+        Point2f p = Point2f(symbol->get_location_x(i),symbol->get_location_y(i));
+        center += p;
+        if (i < 2)
+          pNorth += p;
+
+        //* # HIGHLIGHT #
+        circle(frame, p, 10, color, 2);
+        // # HIGHLIGHT # */
       }
 
-      RotatedRect rect = minAreaRect(vp); // Find the smallest rectangle containing the symbol
-      Point2f center = rect.center;
-      float angle = rect.angle;
+      center = 0.25 * center; // Center of the QRcode
+      pNorth = 0.5 * pNorth; // Middle of the north west and north east points of the QR code
+      float angle = atan2(pNorth.y - center.y, pNorth.x - center.x) * 180. / PI; // Angle of the QR code
+
+      //* # HIGHLIGHT #
+      arrowedLine(frame, center, pNorth, color, 2);
+      // # HIGHLIGHT # */
       
       //* # DATA #
       cout << "Data: \"" << symbol->get_data() << "\" - Angle: " << angle << " - Center: " << center << endl;
       // # DATA # */
-
-      //* # HIGHLIGHT #
-      Point2f pts[4]; // Draw the rectangle's edges on the reprojected image
-      rect.points(pts);
-      for(int i = 0; i < 4; i++)
-        line(frame, pts[i], pts[(i + 1) % 4], color, 2);
-      // # HIGHLIGHT # */
     }
 
     //* # HIGHLIGHT #
@@ -380,15 +389,19 @@ int processGPU(Mat M, Size scnsize, VideoCapture& videocap, const int dIndex)
     // # DATA # */
 
     for(Image::SymbolIterator symbol = image.symbol_begin(); symbol != image.symbol_end(); ++symbol) {
-      vector<Point> vp; // Build a vector of points delimiting the symbol
       int n = symbol->get_location_size();
+      
+      Point2f center, pNorth;
       for(int i = 0; i < n; i++) {
-        vp.push_back(Point(symbol->get_location_x(i),symbol->get_location_y(i)));
+        Point2f p = Point2f(symbol->get_location_x(i),symbol->get_location_y(i));
+        center += p;
+        if (i < 2)
+          pNorth += p;
       }
 
-      RotatedRect rect = minAreaRect(vp); // Find the smallest rectangle containing the symbol
-      Point2f center = rect.center;
-      float angle = rect.angle;
+      center = 0.25 * center; // Center of the QRcode
+      pNorth = 0.5 * pNorth; // Middle of the north west and north east points of the QR code
+      float angle = atan2(pNorth.y - center.y, pNorth.x - center.x) * 180. / PI; // Angle of the QR code
       
       //* # DATA #
       cout << "Data: \"" << symbol->get_data() << "\" - Angle: " << angle << " - Center: " << center << endl;
