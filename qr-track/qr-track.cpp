@@ -221,7 +221,7 @@ bool loadData(const char* projname, const char* scnname, char* source, Mat& M, S
 bool loop_exit = false;
 void interrupt_loop(int sig)
 {
-  cout << endl << "Keyboard interruption catched. Exiting program..." << endl;
+  cout << endl << "Keyboard interruption catched. Terminating program..." << endl;
   loop_exit = true; // Whenever the user exits with Ctrl-C, the programs exits the loop cleanly
 }
 
@@ -244,7 +244,7 @@ int process(Mat M, Size scnsize, VideoCapture& videocap)
   int width = scnsize.width, height = scnsize.height; // Dimensions of the scene
 
   ImageScanner scanner; // Code scanner
-  scanner.set_config(ZBAR_NONE, ZBAR_CFG_ENABLE, 1);
+  scanner.set_config(ZBAR_QRCODE, ZBAR_CFG_ENABLE, 1);
 
   /* # SHOW # Display current frame in a window
   namedWindow("Reprojected frame", 1);
@@ -273,8 +273,10 @@ int process(Mat M, Size scnsize, VideoCapture& videocap)
     imshow("Reprojected frame", frame);
     // # SHOW # */
     
+    // Convert image from cv::Mat to zbar::Image
     uchar *raw = (uchar*) gray.data; // Raw image data
     Image image(width, height, "Y800", raw, width * height);
+    // Using another syntax to call the same constructor seems to cause a systematic crash...
     
     // Scan for codes in the image
     int nsyms = scanner.scan(image);

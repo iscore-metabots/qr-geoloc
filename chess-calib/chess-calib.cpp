@@ -44,7 +44,7 @@ bool readRef( const char* filename, vector< Point2f >& corners, Size& boardsize)
   double step; // Get the board step, i.e. square side length
   stepn >> step;
   
-  double x0 = orig.x, y0 = orig.y;       // Fill the output array with the corners' positions
+  double x0 = orig.x + step, y0 = orig.y + step;       // Fill the output array with the corners' positions
   for(int j = 0; j < boardsize.height; j++)  // Row by row
     for(int i = 0; i < boardsize.width; i++) // Then column by column
       corners.push_back(Point( x0 + i * step, y0 + j * step ) );
@@ -149,10 +149,24 @@ bool getCap( const char* source, Mat& ims)
       videocap >> ims;
       src_opened = (! ims.empty() );
 
-      if (src_opened) { // The calibration image retrieved from the camera is saved at a standard location
-        string imd = "calib-cap.png";
-        bool saved = imwrite(imd, ims);
-        cout << "Image successfully retrieved from camera, saved at: " << imd << endl;
+      if (src_opened) {
+        // Show the user the captured image and ask if it should be saved
+        imshow("Captured image", ims);
+        cout << "Image successfully retrieved from camera." << endl << "Do you want to save it? Y/N" << endl;
+        bool answered = false;
+        char key;
+
+        while(! answered) {
+          key = (char) waitKey(30);
+          if ( (key == 'y') || (key == 'Y') ) {
+            string imd = "calib-cap.png";
+            bool saved = imwrite(imd, ims);
+            cout << (saved ? "Image successfully saved at: " : "Failed to save image at: ") << imd << endl;
+            answered = true;
+          }
+          if ( (key == 'n') || (key == 'N') )
+            answered = true;
+        }
       }
       else
         cout << "Failed to retrieve image from camera!" << endl;
