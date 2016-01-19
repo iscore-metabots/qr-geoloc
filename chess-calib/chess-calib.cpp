@@ -1,5 +1,5 @@
-#include <iostream>
-#include <stdlib.h>
+#include <iostream> // Console outputs
+#include <vector>
 using namespace std;
 
 #include "opencv2/core/core.hpp"
@@ -21,6 +21,7 @@ using namespace cv;
       Row by row, then column by column, from top to bottom, from left to right
     boardsize: output
       Size of the "inner" chessboard that will be used as reference
+    Returns if the import was successful
 */
 bool readRef( const char* filename, vector< Point2f >& corners, Size& boardsize)
 {
@@ -62,6 +63,7 @@ bool readRef( const char* filename, vector< Point2f >& corners, Size& boardsize)
       Full path and name to the YML file to read
     scnsize: output
       Dimensions of the scene
+    Returns if the import was successful
 */
 bool readScene( const char* filename, Size& scnsize)
 {
@@ -90,6 +92,7 @@ bool readScene( const char* filename, Size& scnsize)
     index: input output
       As input: first camera index to try
       As output: last camera index tried, index of the first found camera if applicable
+    Returns if the program could connect to a camera
 */
 bool openCam(VideoCapture& videocap, int& index)
 {
@@ -119,6 +122,7 @@ bool openCam(VideoCapture& videocap, int& index)
       or an integer corresponding to the index of the first camera to try to connect to
     ims: output
       Loaded or captured image which will be used for calibration
+    Returns if the program could open the image file
 */
 bool getCap( const char* source, Mat& ims)
 {
@@ -198,6 +202,7 @@ bool getCap( const char* source, Mat& ims)
       Loaded dimensions of the scene
     ims: output
       Image corresponding to the loaded calibration capture
+    Returns if the data loading was successful
 */
 bool loadData(const char* refname, const char* scnname, const char* source, vector< Point2f >& refcorners, Size& boardsize, Size& scnsize, Mat& ims)
 {
@@ -221,6 +226,7 @@ bool loadData(const char* refname, const char* scnname, const char* source, vect
       Transformation matrix to export
     filename: input
       Full path and name to the YML file to write
+    Returns if the export was successful
 */
 bool saveCalibData(Mat M, char* filename)
 {
