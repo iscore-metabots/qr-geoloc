@@ -337,15 +337,11 @@ bool publishTree(char ID, Point2f center, float angle)
 /*
   Ctrl-C interruption handling
 */
-bool in_loop = false;
 bool loop_exit = false;
 void interrupt_loop(int sig) // Whenever the user exits with Ctrl-C
 {
   cout << endl << "Keyboard interruption catched. Terminating program..." << endl;
-  if (in_loop)
-    loop_exit = true; // The programs exits the loop cleanly
-  else
-    exit(EXIT_FAILURE);
+  loop_exit = true; // The programs exits the loop cleanly
 }
 
 
@@ -381,7 +377,6 @@ int process(Mat M, Size scnsize, VideoCapture& videocap)
 
   // Main loop going through the video stream
   signal(SIGINT, interrupt_loop); // Register interruption signal
-  in_loop = true;
 
   while(! loop_exit) {
     frame_OK = videocap.read(frame);
@@ -420,11 +415,11 @@ int process(Mat M, Size scnsize, VideoCapture& videocap)
       for(int i = 0; i < n; i++) {
         Point2f p = Point2f(symbol->get_location_x(i),symbol->get_location_y(i));
         center += p;
-        if (i < 2)
+        if ((i == 0) || (i == 3))
           pNorth += p;
 
         //* # HIGHLIGHT #
-        circle(frame, p, 6, color, 1);
+        circle(frame, p, 6, color, 2);
         // # HIGHLIGHT # */
       }
 
@@ -446,7 +441,7 @@ int process(Mat M, Size scnsize, VideoCapture& videocap)
     imshow("Found symbols", frame);
     // # HIGHLIGHT # */
   }
-
+  
   return EXIT_SUCCESS;
 }
 
@@ -481,7 +476,6 @@ int processGPU(Mat M, Size scnsize, VideoCapture& videocap, const int dIndex)
 
   // Main loop going through the video stream
   signal(SIGINT, interrupt_loop); // Register interruption signal
-  in_loop = true;
 
   while(! loop_exit) {
     frame_OK = videocap.read(frame);
