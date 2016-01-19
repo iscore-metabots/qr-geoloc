@@ -1,10 +1,10 @@
 
-#include <iostream>
-#include <stdlib.h>
-#include <signal.h>
-#include <math.h>
-#define PI 3.1415927
+#include <iostream> // Console outputs
+#include <vector>
 #include <string>
+#include <signal.h> // Keyboard interruption
+#include <math.h>   // atan2
+#define PI 3.1415927 
 using namespace std;
 
 #include "opencv2/core/core.hpp"
@@ -17,6 +17,14 @@ using namespace cv;
 #include <zbar.h>
 using namespace zbar;
 
+/*#include <memory>
+#include <functional>
+#include "Network/Address.h"
+#include "Network/Device.h"
+#include "Network/Protocol/Local.h"
+#include "Network/Protocol/Minuit.h"
+using namespace OSSIA; */
+
 
 
 /*
@@ -28,10 +36,10 @@ using namespace zbar;
     ID: number identifying the item, as a positive integer
 */
 struct ItemData {
-  int X;
-  int Y;
+  float X;
+  float Y;
   float theta;
-  unsigned int ID;
+  char ID;
 } ;
 
 
@@ -44,6 +52,7 @@ struct ItemData {
     index: input output
       As input: first camera index to try
       As output: last camera index tried, index of the first found camera if applicable
+    Returns if the detection was successful
 */
 bool detectGPU(int& dIndex)
 {
@@ -74,6 +83,7 @@ bool detectGPU(int& dIndex)
       Full path and name to the YML file to read
     M: output
       OpenCV matrix to return transformation matrix
+    Returns if the data import was successful
 */
 bool readProj( const char* filename, Mat& M)
 {
@@ -99,6 +109,7 @@ bool readProj( const char* filename, Mat& M)
       Full path and name to the YML file to read
     scnsize: output
       Dimensions of the scene
+    Returns if the data import was successful
 */
 bool readScene( const char* filename, Size& scnsize)
 {
@@ -127,6 +138,7 @@ bool readScene( const char* filename, Size& scnsize)
     index: input output
       As input: first camera index to try
       As output: last camera index tried, index of the first found camera if applicable
+    Returns if the program could connect to a camera
 */
 bool openCam(VideoCapture& videocap, int& index)
 {
@@ -154,6 +166,7 @@ bool openCam(VideoCapture& videocap, int& index)
       VideoCapture object corresponding to the opened file
     path: input
       Full path and name to the AVI file to open
+    Returns if the program could open the video file
 */
 bool openAVI(VideoCapture& videocap, char* path)
 {
@@ -182,6 +195,7 @@ bool openAVI(VideoCapture& videocap, char* path)
       Loaded dimensions of the scene
     videocap: output
       VideoCapture object corresponding to the loaded video source
+    Returns if the data loading was successful
 */
 bool loadData(const char* projname, const char* scnname, char* source, Mat& M, Size& scnsize, VideoCapture& videocap)
 {
@@ -218,13 +232,120 @@ bool loadData(const char* projname, const char* scnname, char* source, Mat& M, S
 
 
 /*
+  initNetwork
+  Function initializing the network protocol for publishing geolocation data
+  Standard name of the device is "qr-geoloc"
+  Returns if the device creation was successful
+*/
+/*Device localDevice // Device corresponding to the program
+vector< shared_ptr< Node > > nodes // Vector containing all top-level "Metabot.#" nodes
+bool initNetwork()
+{
+  // Declare
+  Local localProtocol = Local::create();
+  localDevice = Device::create(localProtocol, "qr-geoloc");
+
+  return true;
+}
+
+
+
+/*
+  createTree
+  Function creating a data tree describing the localization of a Metabot in the scene plane
+  Standard architecture is
+  /Metabot.#/
+            /X    float, horizontal position coordinate
+            /Y    float, vertical position coordinate
+            /th   float, orientation angle
+    ID: input
+      Character corresponding to the ID of the Metabot
+    Returns the top-level "Metabot.#" node
+*
+Node createTree(char ID)
+{
+  // Top-level node, root of the data tree
+  Node metabotNode = *(localDevice->emplace(localDevice->children().cend(), "Metabot." + ID));
+
+  // Localization of the item
+  Node XNode = *(metabotNode->emplace(metabotNode->children().cend(), "X"));
+  Address XAddress = XNode->createAddress(Value::Type::FLOAT);
+  Node YNode = *(metabotNode->emplace(metabotNode->children().cend(), "Y"));
+  Address YAddress = YNode->createAddress(Value::Type::FLOAT);
+  Node thNode = *(metabotNode->emplace(metabotNode->children().cend(), "th"));
+  Address thAddress = thNode->createAddress(Value::Type::FLOAT);
+
+  shared_ptr< Node > sptr(metabotNode);
+  nodes.push_back(sptr);
+
+  return metabotNode
+}
+
+
+
+/*
+  getNode
+  Function accessing a node with the given ID
+  or creating it if it doesn't exist yet
+    ID: input
+      Character corresponding to the ID of the Metabot
+    Returns the top-level "Metabot.#" node with the given ID
+*
+Node getNode(char ID)
+{
+  Node resNode;
+  bool found = false;
+  // Check if a tree already exists for the given ID
+  if (!found)
+    resNode = createTree(ID);
+
+  return resNode;
+}
+
+
+
+/*
+  publishTree
+  Function updating the data tree of the metabot with the given ID
+    ID: input
+      Character corresponding to the ID of the Metabot
+    center: input
+      Position of the center of the Metabot
+    angle: input
+      Orientation angle of the Metabot within the scene plane
+    Returns if the publication was successful
+*
+bool publishTree(char ID, Point2f center, float angle)
+{
+  // Get nodes of the tree values
+  Node metabotNode = getNode(ID);
+  Container< Node > children = metabotNode.children();
+  
+  // Update tree values
+  Float X(center.x);
+  children[0].getAddress()->pushValue(&X);
+  Float Y(center.y);
+  children[1].getAddress()->pushValue(&Y);
+  Float th(angle);
+  children[2].getAddress()->pushValue(&th);
+
+  return true;
+}*/
+
+
+
+/*
   Ctrl-C interruption handling
 */
+bool in_loop = false;
 bool loop_exit = false;
-void interrupt_loop(int sig)
+void interrupt_loop(int sig) // Whenever the user exits with Ctrl-C
 {
   cout << endl << "Keyboard interruption catched. Terminating program..." << endl;
-  loop_exit = true; // Whenever the user exits with Ctrl-C, the programs exits the loop cleanly
+  if (in_loop)
+    loop_exit = true; // The programs exits the loop cleanly
+  else
+    exit(EXIT_FAILURE);
 }
 
 
@@ -260,6 +381,7 @@ int process(Mat M, Size scnsize, VideoCapture& videocap)
 
   // Main loop going through the video stream
   signal(SIGINT, interrupt_loop); // Register interruption signal
+  in_loop = true;
 
   while(! loop_exit) {
     frame_OK = videocap.read(frame);
@@ -291,9 +413,9 @@ int process(Mat M, Size scnsize, VideoCapture& videocap)
     // # DATA # */
 
     for(Image::SymbolIterator symbol = image.symbol_begin(); symbol != image.symbol_end(); ++symbol) {
-      vector< Point2f > vp; // Build a vector of points delimiting the symbol
-      int n = symbol->get_location_size();
+      char ID = symbol->get_data()[0];
       
+      int n = symbol->get_location_size();
       Point2f center, pNorth;
       for(int i = 0; i < n; i++) {
         Point2f p = Point2f(symbol->get_location_x(i),symbol->get_location_y(i));
@@ -302,7 +424,7 @@ int process(Mat M, Size scnsize, VideoCapture& videocap)
           pNorth += p;
 
         //* # HIGHLIGHT #
-        circle(frame, p, 10, color, 2);
+        circle(frame, p, 6, color, 1);
         // # HIGHLIGHT # */
       }
 
@@ -315,7 +437,8 @@ int process(Mat M, Size scnsize, VideoCapture& videocap)
       // # HIGHLIGHT # */
       
       //* # DATA #
-      cout << "Data: \"" << symbol->get_data() << "\" - Angle: " << angle << " - Center: " << center << endl;
+      cout << "Data: \"" << ID << "\" - Angle: " << angle << " - Center: " << center << endl;
+      //publishTree(ID, center, angle);
       // # DATA # */
     }
 
@@ -358,6 +481,7 @@ int processGPU(Mat M, Size scnsize, VideoCapture& videocap, const int dIndex)
 
   // Main loop going through the video stream
   signal(SIGINT, interrupt_loop); // Register interruption signal
+  in_loop = true;
 
   while(! loop_exit) {
     frame_OK = videocap.read(frame);
@@ -389,8 +513,9 @@ int processGPU(Mat M, Size scnsize, VideoCapture& videocap, const int dIndex)
     // # DATA # */
 
     for(Image::SymbolIterator symbol = image.symbol_begin(); symbol != image.symbol_end(); ++symbol) {
+      char ID = symbol->get_data()[0];
+
       int n = symbol->get_location_size();
-      
       Point2f center, pNorth;
       for(int i = 0; i < n; i++) {
         Point2f p = Point2f(symbol->get_location_x(i),symbol->get_location_y(i));
@@ -404,7 +529,8 @@ int processGPU(Mat M, Size scnsize, VideoCapture& videocap, const int dIndex)
       float angle = atan2(pNorth.y - center.y, pNorth.x - center.x) * 180. / PI; // Angle of the QR code
       
       //* # DATA #
-      cout << "Data: \"" << symbol->get_data() << "\" - Angle: " << angle << " - Center: " << center << endl;
+      cout << "Data: \"" << ID << "\" - Angle: " << angle << " - Center: " << center << endl;
+      //publishTree(ID, center, angle);
       // # DATA # */
     }
   }
