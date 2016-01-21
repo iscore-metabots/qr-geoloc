@@ -1,4 +1,3 @@
-
 #include <iostream> // Console outputs
 #include <vector>
 #include <string>
@@ -25,22 +24,7 @@ using namespace zbar;
 #include "Network/Protocol/Minuit.h"
 using namespace OSSIA; */
 
-
-
-/*
-  ItemData
-  Structure aggregating geometric and ID data about each detected item in the image
-    X: horizontal coordinate of the item
-    Y: vertical coordinate of the item
-    theta: orientation of the item
-    ID: number identifying the item, as a positive integer
-*/
-struct ItemData {
-  float X;
-  float Y;
-  float theta;
-  char ID;
-} ;
+#include "qr-track.hpp"
 
 
 
@@ -347,7 +331,7 @@ void interrupt_loop(int sig) // Whenever the user exits with Ctrl-C
 
 
 /*
-  process
+  scan
   Function scanning an image taken from a calibrated camera to identify QR or bar codes
     M: input
       Transformation matrix to reproject the images from the video stream
@@ -356,7 +340,7 @@ void interrupt_loop(int sig) // Whenever the user exits with Ctrl-C
     videocap: input
       VideoCapture object corresponding to the video source
 */
-int process(Mat M, Size scnsize, VideoCapture& videocap)
+int scan(Mat M, Size scnsize, VideoCapture& videocap)
 {
   Mat frame, gray; // Images that will be read and scanned
   bool frame_OK = false;
@@ -455,7 +439,7 @@ int process(Mat M, Size scnsize, VideoCapture& videocap)
   dIndex: input
     Index of the GPU device to enable
 */
-int processGPU(Mat M, Size scnsize, VideoCapture& videocap, const int dIndex)
+int scanGPU(Mat M, Size scnsize, VideoCapture& videocap, const int dIndex)
 {
   // Set detected GPU as used device
   gpu::setDevice(dIndex);
@@ -536,20 +520,19 @@ int processGPU(Mat M, Size scnsize, VideoCapture& videocap, const int dIndex)
 
 #define param 3
 #define bound "# -----------------------------------"
-#define tryGPU false
+#define tryGPU false // This should become an optional parameter
 
 int main(int args, char* argv[])
 {
   if (args != param + 1) {
-    if (args < param + 1) {
+    if (args < param + 1)
       cout << "Too few arguments!";
-    }
-    else {
+    else
       cout << "Too many arguments!";
-    }
     cerr << " Number given: " << args - 1 << endl << "Usage: qr-track <calib-data.yml> <scn-data.yml> <video-source>" << endl;
     exit(EXIT_FAILURE);
   }
+
   else {
     cout << bound << endl << "QR tracker based on reprojection data" << endl << endl;
     Mat M;
@@ -558,11 +541,11 @@ int main(int args, char* argv[])
 
     if ( loadData(argv[1], argv[2], argv[3], M, scnsize, videocap) ) {
       bool useCPU = true;
-      int dIndex = 0; // Try to detect a GPU on the computer
-      if (tryGPU) {
+      int dIndex = 0;
+
+      if (tryGPU) { // Try to detect a GPU on the computer
         try {
           useCPU = !detectGPU(dIndex);
-
           if ( useCPU )
             cout << "No compatible GPU detected. Processing with CPU only..." << endl << bound << endl << endl;
           else
@@ -575,14 +558,12 @@ int main(int args, char* argv[])
         }
       }
       else
-      {
         cout << "\"tryGPU\" option disabled. Processing with CPU..." << endl << bound << endl << endl;
-      }
 
       if( useCPU )
-        return process(M, scnsize, videocap);
+        return scan(M, scnsize, videocap);
       else
-        return processGPU(M, scnsize, videocap, dIndex);
+        return scanGPU(M, scnsize, videocap, dIndex);
     }
     else {
       cerr << endl << bound << endl << "Aborting scanning..." << endl;
