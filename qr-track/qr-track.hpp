@@ -97,55 +97,6 @@ bool loadData(const char* projname, const char* scnname, char* source, Mat& M, S
 
 
 /*
-  initNetwork
-  Function initializing the network protocol for publishing geolocation data
-  Standard name of the device is "qr-geoloc"
-  Returns if the device creation was successful
-*/
-
-
-
-/*
-  createTree
-  Function creating a data tree describing the localization of a Metabot in the scene plane
-  Standard architecture is
-  /Metabot.#/
-            /X    float, horizontal position coordinate
-            /Y    float, vertical position coordinate
-            /th   float, orientation angle
-    ID: input
-      Character corresponding to the ID of the Metabot
-    Returns the top-level "Metabot.#" node
-*/
-
-
-
-/*
-  getNode
-  Function accessing a node with the given ID
-  or creating it if it doesn't exist yet
-    ID: input
-      Character corresponding to the ID of the Metabot
-    Returns the top-level "Metabot.#" node with the given ID
-*/
-
-
-
-/*
-  publishTree
-  Function updating the data tree of the metabot with the given ID
-    ID: input
-      Character corresponding to the ID of the Metabot
-    center: input
-      Position of the center of the Metabot
-    angle: input
-      Orientation angle of the Metabot within the scene plane
-    Returns if the publication was successful
-*/
-
-
-
-/*
   Ctrl-C interruption handling
 */
 void interrupt_loop(int sig);

@@ -16,14 +16,6 @@ using namespace cv;
 #include <zbar.h>
 using namespace zbar;
 
-/*#include <memory>
-#include <functional>
-#include "Network/Address.h"
-#include "Network/Device.h"
-#include "Network/Protocol/Local.h"
-#include "Network/Protocol/Minuit.h"
-using namespace OSSIA; */
-
 #include "qr-track.hpp"
 
 
@@ -212,109 +204,6 @@ bool loadData(const char* projname, const char* scnname, char* source, Mat& M, S
 
   return (cap_opened && proj_loaded && scn_loaded);
 }
-
-
-
-/*
-  initNetwork
-  Function initializing the network protocol for publishing geolocation data
-  Standard name of the device is "qr-geoloc"
-  Returns if the device creation was successful
-*/
-/*Device localDevice // Device corresponding to the program
-vector< shared_ptr< Node > > nodes // Vector containing all top-level "Metabot.#" nodes
-bool initNetwork()
-{
-  // Declare
-  Local localProtocol = Local::create();
-  localDevice = Device::create(localProtocol, "qr-geoloc");
-
-  return true;
-}
-
-
-
-/*
-  createTree
-  Function creating a data tree describing the localization of a Metabot in the scene plane
-  Standard architecture is
-  /Metabot.#/
-            /X    float, horizontal position coordinate
-            /Y    float, vertical position coordinate
-            /th   float, orientation angle
-    ID: input
-      Character corresponding to the ID of the Metabot
-    Returns the top-level "Metabot.#" node
-*
-Node createTree(char ID)
-{
-  // Top-level node, root of the data tree
-  Node metabotNode = *(localDevice->emplace(localDevice->children().cend(), "Metabot." + ID));
-
-  // Localization of the item
-  Node XNode = *(metabotNode->emplace(metabotNode->children().cend(), "X"));
-  Address XAddress = XNode->createAddress(Value::Type::FLOAT);
-  Node YNode = *(metabotNode->emplace(metabotNode->children().cend(), "Y"));
-  Address YAddress = YNode->createAddress(Value::Type::FLOAT);
-  Node thNode = *(metabotNode->emplace(metabotNode->children().cend(), "th"));
-  Address thAddress = thNode->createAddress(Value::Type::FLOAT);
-
-  shared_ptr< Node > sptr(metabotNode);
-  nodes.push_back(sptr);
-
-  return metabotNode
-}
-
-
-
-/*
-  getNode
-  Function accessing a node with the given ID
-  or creating it if it doesn't exist yet
-    ID: input
-      Character corresponding to the ID of the Metabot
-    Returns the top-level "Metabot.#" node with the given ID
-*
-Node getNode(char ID)
-{
-  Node resNode;
-  bool found = false;
-  // Check if a tree already exists for the given ID
-  if (!found)
-    resNode = createTree(ID);
-
-  return resNode;
-}
-
-
-
-/*
-  publishTree
-  Function updating the data tree of the metabot with the given ID
-    ID: input
-      Character corresponding to the ID of the Metabot
-    center: input
-      Position of the center of the Metabot
-    angle: input
-      Orientation angle of the Metabot within the scene plane
-    Returns if the publication was successful
-*
-bool publishTree(char ID, Point2f center, float angle)
-{
-  // Get nodes of the tree values
-  Node metabotNode = getNode(ID);
-  Container< Node > children = metabotNode.children();
-  
-  // Update tree values
-  Float X(center.x);
-  children[0].getAddress()->pushValue(&X);
-  Float Y(center.y);
-  children[1].getAddress()->pushValue(&Y);
-  Float th(angle);
-  children[2].getAddress()->pushValue(&th);
-
-  return true;
-}*/
 
 
 
